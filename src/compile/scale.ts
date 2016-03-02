@@ -7,7 +7,7 @@ import {StackOffset} from '../config';
 import {SOURCE, STACKED_SCALE} from '../data';
 import {FieldDef, field, isMeasure} from '../fielddef';
 import {Mark, BAR, TEXT as TEXT_MARK} from '../mark';
-import {Scale, ScaleType, NiceTime} from '../scale';
+import {Scale, ScaleType, NiceTime, BANDSIZE_FIT} from '../scale';
 import {TimeUnit} from '../timeunit';
 import {NOMINAL, ORDINAL, QUANTITATIVE, TEMPORAL} from '../type';
 import {contains, extend, Dict} from '../util';
@@ -83,9 +83,10 @@ function mainScale(model: Model, fieldDef: FieldDef, channel: Channel) {
     // quantitative
     'exponent', 'zero',
     // ordinal
-    'padding', 'points'
+    'points',
+    'padding' // padding depends on points
   ].forEach(function(property) {
-    const value = exports[property](scale, channel, fieldDef, model);
+    const value = exports[property](scale, channel, fieldDef, model, scaleDef);
     if (value !== undefined) {
       scaleDef[property] = value;
     }
@@ -328,7 +329,7 @@ export function rangeMixins(scale: Scale, model: Model, channel: Channel): any {
   const fieldDef = model.fieldDef(channel),
   scaleConfig = model.config().scale;
 
-  if (scale.type === ScaleType.ORDINAL && scale.bandSize && contains([X, Y], channel)) {
+  if (scale.type === ScaleType.ORDINAL && scale.bandSize && scale.bandSize !== BANDSIZE_FIT && contains([X, Y], channel)) {
     return {bandSize: scale.bandSize};
   }
 
@@ -430,7 +431,7 @@ export function nice(scale: Scale, channel: Channel, fieldDef: FieldDef): boolea
 }
 
 
-export function padding(scale: Scale, channel: Channel) {
+export function padding(scale: Scale, channel: Channel, scaleDef) {
   /* Padding is only allowed for X and Y.
    *
    * Basically it doesn't make sense to add padding for color and size.
@@ -440,16 +441,17 @@ export function padding(scale: Scale, channel: Channel) {
    * Therefore, we manually calculate padding in the layout by ourselves.
    */
   if (scale.type === ScaleType.ORDINAL && contains([X, Y], channel)) {
-    return scale.padding;
+    // TODO: design config for this
+    return scaleDef.points ? scale.padding : 0;
   }
   return undefined;
 }
 
 export function points(scale: Scale, channel: Channel, __, model: Model) {
   if (scale.type === ScaleType.ORDINAL && contains([X, Y], channel)) {
-    // We always use ordinal point scale for x and y.
+    // We always use ordinal point scale for x and y except when the mark is bar and the scale's bandWidth is 'fit'
     // Thus `points` isn't included in the scale's schema.
-    return true;
+    return (model as UnitModel).mark() === BAR && scale.bandSize === BANDSIZE_FIT ? undefined : true;
   }
   return undefined;
 }

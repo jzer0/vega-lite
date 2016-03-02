@@ -8,7 +8,7 @@ import * as vlEncoding from '../encoding'; // TODO: remove
 import {FieldDef, FieldRefOption, field} from '../fielddef';
 import {LegendProperties} from '../legend';
 import {Mark, TEXT as TEXTMARK} from '../mark';
-import {Scale, ScaleType} from '../scale';
+import {Scale, ScaleType, BANDSIZE_FIT} from '../scale';
 import {ExtendedUnitSpec} from '../spec';
 import {getFullName, QUANTITATIVE} from '../type';
 import {duplicate, extend, mergeDeep, Dict} from '../util';
@@ -95,7 +95,7 @@ export class UnitModel extends Model {
           round: config.scale.round,
           padding: config.scale.padding,
           includeRawDomain: config.scale.includeRawDomain,
-          bandSize: channel === X && _scaleType === ScaleType.ORDINAL && mark === TEXTMARK ?
+          bandSize: channel === X && _scaleType === ScaleType.ORDINAL && mark === TEXTMARK && config.scale.bandSize !== BANDSIZE_FIT ?
                      config.scale.textBandWidth : config.scale.bandSize
         }, scaleSpec);
       }

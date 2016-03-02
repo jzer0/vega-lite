@@ -20,6 +20,12 @@ export enum NiceTime {
     YEAR = 'year' as any,
 }
 
+export enum BandSize {
+  FIT = 'fit' as any
+}
+
+export const BANDSIZE_FIT = BandSize.FIT;
+
 export interface ScaleConfig {
   /**
    * If true, rounds numeric output values to integers.
@@ -37,7 +43,7 @@ export interface ScaleConfig {
    * and (2) `x` ordinal scale when the mark is not `text`.
    * @minimum 0
    */
-  bandSize?: number;
+  bandSize?: number | BandSize;
   /**
    * Default padding for `x` and `y` ordinal scales.
    */

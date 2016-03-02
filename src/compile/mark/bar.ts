@@ -1,5 +1,6 @@
 import {X, Y, SIZE, Channel} from '../../channel';
 import {isMeasure} from '../../fielddef';
+import {BANDSIZE_FIT} from '../../scale';
 
 import {UnitModel} from '../unit';
 import {applyColorAndOpacity} from '../common';
@@ -70,15 +71,27 @@ export namespace bar {
       }
     } else { // x is dimension or unspecified
       if (model.has(X)) { // is ordinal
-       p.xc = {
-         scale: model.scaleName(X),
-         field: model.field(X)
-       };
+        if (model.scale(X).bandSize === BANDSIZE_FIT) {
+          p.x = {
+            scale: model.scaleName(X),
+            field: model.field(X),
+            offset: 0.5 // TODO offset or padding
+          };
+        } else {
+          p.xc = {
+            scale: model.scaleName(X),
+            field: model.field(X)
+          };
+        }
      } else { // no x
         p.x = { value: 0, offset: 2 };
       }
 
-      p.width = model.has(SIZE) && orient !== 'horizontal' ? {
+      p.width = model.has(X) && model.scale(X).bandSize === BANDSIZE_FIT ? {
+          scale: model.scaleName(X),
+          band: true,
+          offset: -0.5 // TODO offset or padding
+        } : model.has(SIZE) && orient !== 'horizontal' ? {
           // apply size scale if has size and is vertical (explicit "vertical" or undefined)
           scale: model.scaleName(SIZE),
           field: model.field(SIZE)
@@ -143,10 +156,18 @@ export namespace bar {
     } else { // y is ordinal or unspecified
 
       if (model.has(Y)) { // is ordinal
-        p.yc = {
-          scale: model.scaleName(Y),
-          field: model.field(Y)
-        };
+         if (model.scale(Y).bandSize === BANDSIZE_FIT) {
+          p.y = {
+            scale: model.scaleName(Y),
+            field: model.field(Y),
+            offset: 0.5 // TODO offset or padding
+          };
+        } else {
+          p.yc = {
+            scale: model.scaleName(Y),
+            field: model.field(Y)
+          };
+        }
       } else { // No Y
         p.y2 = {
           field: { group: 'height' },
@@ -154,7 +175,11 @@ export namespace bar {
         };
       }
 
-      p.height = model.has(SIZE)  && orient === 'horizontal' ? {
+      p.height = model.has(Y) && model.scale(Y).bandSize === BANDSIZE_FIT ? {
+          scale: model.scaleName(Y),
+          band: true,
+          offset: -0.5 // TODO offset or padding
+        } : model.has(SIZE)  && orient === 'horizontal' ? {
           // apply size scale if has size and is horizontal
           scale: model.scaleName(SIZE),
           field: model.field(SIZE)
@@ -167,6 +192,7 @@ export namespace bar {
     return p;
   }
 
+  // TODO: make this a mixins
   function sizeValue(model: UnitModel, channel: Channel) {
     const fieldDef = model.fieldDef(SIZE);
     if (fieldDef && fieldDef.value !== undefined) {
@@ -182,6 +208,7 @@ export namespace bar {
         // For ordinal scale or single bar, we can use bandSize - 1
         // (-1 so that the border of the bar falls on exact pixel)
         model.scale(channel).bandSize - 1 :
+        // TODO: {band: true}
       !model.has(channel) ?
         model.config().scale.bandSize - 1 :
         // otherwise, set to thinBarWidth by default
