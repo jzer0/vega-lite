@@ -76,7 +76,7 @@ export const defaultScaleConfig: ScaleConfig = {
   round: true,
   textBandWidth: 90,
   bandSize: 21,
-  padding: 1,
+  padding: 0.1,
   includeRawDomain: false,
 
   nominalColorRange: 'category10',

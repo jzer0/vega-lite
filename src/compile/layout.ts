@@ -72,26 +72,26 @@ export function parseUnitLayout(model: UnitModel): LayoutComponent {
 }
 
 function parseUnitSizeLayout(model: UnitModel, channel: Channel): SizeComponent {
-  const nonOrdinalSize = channel === X ? model.cellWidth() : model.cellHeight();
+  const staticCellSize = channel === X ? model.cellWidth() : model.cellHeight();
 
   return {
     distinct: getDistinct(model, channel),
     formula: [{
       field: model.channelSizeName(channel),
-      expr: unitSizeExpr(model, channel, nonOrdinalSize)
+      expr: unitSizeExpr(model, channel, staticCellSize)
     }]
   };
 }
 
-function unitSizeExpr(model: UnitModel, channel: Channel, nonOrdinalSize: number): string {
+function unitSizeExpr(model: UnitModel, channel: Channel, staticCellSize: number): string {
   if (model.has(channel)) {
     if (model.isOrdinalScale(channel) && model.scale(channel).bandSize !== BANDSIZE_FIT) {
       const scale = model.scale(channel);
       return '(' + cardinalityFormula(model, channel) +
-        ' + ' + scale.padding +
+        ' + ' + 1 +
         ') * ' + scale.bandSize;
     } else {
-      return nonOrdinalSize + '';
+      return staticCellSize + '';
     }
   } else {
     // TODO: need a way to set this to fit when using with layering.
