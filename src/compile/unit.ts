@@ -37,8 +37,6 @@ export class UnitModel extends Model {
   private _mark: Mark;
   private _encoding: Encoding;
   private _stack: StackProperties;
-  private _select: any;
-  private _selections: selections.Selection[];
 
   constructor(spec: ExtendedUnitSpec, parent: Model, parentGivenName: string, repeatValues: RepeatValues) {
     super(spec, parent, parentGivenName, repeatValues);
@@ -55,7 +53,6 @@ export class UnitModel extends Model {
     this._stack = compileStackProperties(mark, encoding, scale, config);
 
     this._select = spec.select;
-    this._selections = selections.parse(spec.select, this);
   }
 
   private _initEncoding(mark: Mark, encoding: Encoding) {
@@ -174,6 +171,10 @@ export class UnitModel extends Model {
     this.component.legend = parseLegendComponent(this);
   }
 
+  public parseSelection() {
+    this.component.selection = selections.parse(this, this._select);
+  }
+
   public assembleData(data: VgData[]): VgData[] {
     return assembleData(this, data);
   }
@@ -195,7 +196,11 @@ export class UnitModel extends Model {
   }
 
   public assembleParentGroupProperties(cellConfig: CellConfig) {
-    return applyConfig({}, cellConfig, FILL_STROKE_CONFIG.concat(['clip']));
+    var props = applyConfig({}, cellConfig, FILL_STROKE_CONFIG.concat(['clip']));
+    return extend(props, {
+      _x: { value: this.fieldOrig(X) || null },
+      _y: { value: this.fieldOrig(Y) || null }
+    });
   }
 
   public channels() {
@@ -279,10 +284,6 @@ export class UnitModel extends Model {
 
       return fieldDef;
     });
-  }
-
-  public selection(name: string = undefined) {
-    return (this._select && this._select[name]) || this._selections;
   }
 
   public dataTable() {

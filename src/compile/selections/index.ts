@@ -1,4 +1,4 @@
-import {UnitModel} from '../unit';
+import * as Model from '../model';
 import * as u from '../../util';
 import * as tx from './transforms';
 export {tx as transforms};
@@ -14,12 +14,21 @@ export enum Levels {
   VISUAL = 'visual' as any
 }
 
+export enum Resolutions {
+  SINGLE = 'single' as any,
+  UNION  = 'union'  as any,
+  INTERSECT = 'intersect' as any,
+  UNION_OTHERS = 'union_others' as any,
+  INTERSECT_OTHERS = 'intersect_others' as any
+}
+
 export interface Selection {
   name:  string;
   type:  Types;
   level: Levels;
   on: string;
   predicate: string;
+  resolve?: Resolutions;
 
   // Transforms
   project?: any;
@@ -29,44 +38,69 @@ export interface Selection {
   translate?: any;
   zoom?: any;
   nearest?: any;
+
+  // Flags to test if Unit or Composite Models should assemble
+  assembleData: boolean;
+  assembleSignals: boolean;
 }
 
 export function storeName(sel: Selection) {
   return sel.name + (sel.type === Types.SET ? '_db' : '');
 }
 
-export function parse(spec, model: UnitModel) {
-  return u.keys(spec).map(function(k) {
-    var sel:Selection = spec[k];
+function parseDef(model, name, def) {
+  // Set default properties and instantiate default transforms.
+  def.name  = model.name(name);
+  def.level = def.level || Levels.DATA;
+  def.on = def.on || 'click';
 
-    // Set default properties and instantiate default transforms.
-    sel.name = model.name(k);
-    sel.level = sel.level || Levels.DATA;
-    sel.on = sel.on || 'click';
+  if (def.type === Types.SET && !def.scales && !def.interval) {
+    def.toggle = def.toggle || true;
+  }
 
-    if (sel.type === Types.SET && !sel.scales && !sel.interval) {
-      sel.toggle = sel.toggle || true;
+  if (!def.project) {
+    def.project = (def.scales || def.interval) ?
+      { channels: ['x', 'y'] } : { fields: ['_id'] };
+  }
+
+  // Parse transformations.
+  transforms.forEach(function(k) {
+    if (!tx[k].parse || !def[k]) return;
+    tx[k].parse(model, def);
+  });
+
+  return def;
+}
+
+export function parse(model, select) {
+  var keys = u.keys(select);
+
+  // Iterate through all the define selections. Unit models only parse
+  // selections that haven't been parsed by their parents (i.e., no name
+  // is set). However, both unit and composite models hold onto a list of
+  // parsed selections for assembly.
+  return keys.map(function(k) {
+    var def = select[k];
+    def.resolve = def.resolve || Resolutions.SINGLE;
+    if (def.scales) def.resolve = Resolutions.SINGLE;
+
+    if (Model.isUnitModel(model)) {
+      if (!def.name) parseDef(model, k, def);
+    } else if (def.resolve === Resolutions.SINGLE) {
+      parseDef(model, k, def);
     }
 
-    if (!sel.project) {
-      sel.project = (sel.scales || sel.interval) ?
-        { channels: ['x', 'y'] } : { fields: ['_id'] };
-    }
-
-    // Parse transformations.
-    transforms.forEach(function(k) {
-      if (!tx[k].parse || !sel[k]) return;
-      tx[k].parse(model, sel);
-    });
-
-    return sel;
+    def.assembleData = false;
+    def.assembleSignals = false;
+    return def;
   });
 }
 
-export function assembleSignals(model: UnitModel, signals) {
+export function assembleSignals(model, signals) {
   var unit = !signals.length;
 
   model.selection().forEach(function(sel: Selection) {
+    if (sel.assembleSignals) return;
     var trigger = {
       name: sel.name,
       verbose: true,  // TODO: how do we do better than this?
@@ -95,6 +129,8 @@ export function assembleSignals(model: UnitModel, signals) {
     if (sel.type === Types.SET && clear.name) {
       signals.push(clear);
     }
+
+    sel.assembleSignals = true;
   });
 
   // TODO: Get correct name for unit's enclosing group (where scales are defined).
@@ -112,9 +148,10 @@ export function assembleSignals(model: UnitModel, signals) {
   return signals;
 }
 
-export function assembleData(model: UnitModel, data) {
+export function assembleData(model, data) {
   model.selection().forEach(function(sel: Selection) {
     if (sel.type !== Types.SET) return;
+    if (sel.assembleData) return;
     var db = {
       name: storeName(sel),
       transform: [],
@@ -129,11 +166,12 @@ export function assembleData(model: UnitModel, data) {
     });
 
     data.unshift(db);
+    sel.assembleData = true;
   });
   return data;
 }
 
-export function assembleMarks(model: UnitModel, marks: any[]) {
+export function assembleMarks(model, marks: any[]) {
   var children = marks;
   model.selection().forEach(function(sel: Selection) {
     transforms.forEach(function(k) {

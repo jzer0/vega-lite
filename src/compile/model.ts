@@ -15,7 +15,10 @@ import {DataComponent} from './data/data';
 import {LayoutComponent} from './layout';
 import {ScaleComponents} from './scale';
 import {RepeatModel, RepeatValues} from './repeat';
-
+import {UnitModel} from './unit';
+import {LayerModel} from './layer';
+import {FacetModel} from './facet';
+import * as selections from './selections';
 
 /**
  * Composable Components that are intermediate results of the parsing phase of the
@@ -41,6 +44,8 @@ export interface Component {
   gridGroup: Dict<VgMarkGroup[]>;
 
   mark: VgMarkGroup[];
+
+  selection: selections.Selection[];
 }
 
 class NameMap {
@@ -69,6 +74,8 @@ export abstract class Model {
   protected _parent: Model;
   protected _name: string;
   protected _description: string;
+
+  protected _select: any;
 
   protected _data: Data;
 
@@ -117,11 +124,12 @@ export abstract class Model {
     this._description = spec.description;
     this._transform = spec.transform;
 
-    this.component = {data: null, layout: null, mark: null, scale: null, axis: null, axisGroup: null, gridGroup: null, legend: null};
+    this.component = {data: null, layout: null, mark: null, scale: null, axis: null, axisGroup: null, gridGroup: null, legend: null, selection: null};
   }
 
 
   public parse() {
+    this.parseSelection();
     this.parseData();
     this.parseLayoutData();
     this.parseScale(); // depends on data name
@@ -148,6 +156,7 @@ export abstract class Model {
   public abstract parseAxisGroup();
   public abstract parseGridGroup();
 
+  public parseSelection() {}
 
   public abstract assembleData(data: VgData[]): VgData[];
 
@@ -360,6 +369,10 @@ export abstract class Model {
     }
   }
 
+  public selection(name?: string) {
+    return (this._select && this._select[name]) || this.component.selection || [];
+  }
+
   /**
    * Get the spec configuration.
    */
@@ -391,6 +404,18 @@ export abstract class Model {
   public isRepeat() {
     return false;
   }
+}
+
+export function isUnitModel(model: Model): model is UnitModel {
+  return model.isUnit();
+}
+
+export function isFacetModel(model: Model): model is FacetModel {
+  return model.isFacet();
+}
+
+export function isLayerModel(model: Model): model is LayerModel {
+  return model.isLayer();
 }
 
 export function isRepeatModel(model: Model): model is RepeatModel {

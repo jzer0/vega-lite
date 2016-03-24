@@ -263,6 +263,10 @@ export class FacetModel extends Model {
     this._child.component.legend = {};
   }
 
+  public parseSelection() {
+    return null;
+  }
+
   public assembleParentGroupProperties() {
     return null;
   }
@@ -274,7 +278,7 @@ export class FacetModel extends Model {
   }
 
   public assembleLayout(layoutData: VgData[]): VgData[] {
-    // Postfix traversal – layout is assembled bottom-up 
+    // Postfix traversal – layout is assembled bottom-up
     this._child.assembleLayout(layoutData);
     return assembleLayout(this, layoutData);
   }
