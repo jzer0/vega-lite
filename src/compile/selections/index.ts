@@ -1,4 +1,4 @@
-import {UnitModel} from '../unit';
+import * as Model from '../model';
 import * as u from '../../util';
 import * as tx from './transforms';
 export {tx as transforms};
@@ -14,12 +14,21 @@ export enum Levels {
   VISUAL = 'visual' as any
 }
 
+export enum Resolutions {
+  SINGLE = 'single' as any,
+  UNION  = 'union'  as any,
+  INTERSECT = 'intersect' as any,
+  UNION_OTHERS = 'union_others' as any,
+  INTERSECT_OTHERS = 'intersect_others' as any
+}
+
 export interface Selection {
   name:  string;
   type:  Types;
   level: Levels;
   on: string;
   predicate: string;
+  resolve?: Resolutions;
 
   // Transforms
   project?: any;
@@ -35,35 +44,60 @@ export function storeName(sel: Selection) {
   return sel.name + (sel.type === Types.SET ? '_db' : '');
 }
 
-export function parse(spec, model: UnitModel) {
-  return u.keys(spec).map(function(k) {
-    var sel:Selection = spec[k];
+export function eventName(model, event) {
+  return '@' + model.name('cell') + ':' + event;
+}
 
-    // Set default properties and instantiate default transforms.
-    sel.name = model.name(k);
-    sel.level = sel.level || Levels.DATA;
-    sel.on = sel.on || 'click';
+function parseDef(model, name, def) {
+  // Set default properties and instantiate default transforms.
+  def.name  = model.name(name);
+  def.level = def.level || Levels.DATA;
+  def.on = def.on && eventName(model, def.on) || eventName(model, 'click');
 
-    if (sel.type === Types.SET && !sel.scales && !sel.interval) {
-      sel.toggle = sel.toggle || true;
+  if (def.type === Types.SET && !def.scales && !def.interval) {
+    def.toggle = def.toggle || true;
+  }
+
+  if (!def.project) {
+    def.project = (def.scales || def.interval) ?
+      { channels: ['x', 'y'] } : { fields: ['_id'] };
+  }
+
+  // Parse transformations.
+  transforms.forEach(function(k) {
+    if (!tx[k].parse || !def[k]) return;
+    tx[k].parse(model, def);
+  });
+
+  return def;
+}
+
+export function parse(model, select) {
+  var keys = u.keys(select);
+
+  // Iterate through all the define selections. Unit models only parse
+  // selections that haven't been parsed by their parents (i.e., no name
+  // is set). However, both unit and composite models hold onto a list of
+  // parsed selections for assembly.
+  return keys.map(function(k) {
+    var def = select[k];
+    def.resolve = def.resolve || Resolutions.SINGLE;
+    if (def.scales) def.resolve = Resolutions.SINGLE;
+
+    if (Model.isUnitModel(model)) {
+      def.resolve = Resolutions.SINGLE;
+      parseDef(model, k, def);
+    } else if (def.resolve === Resolutions.SINGLE) {
+      parseDef(model, k, def);
     }
 
-    if (!sel.project) {
-      sel.project = (sel.scales || sel.interval) ?
-        { channels: ['x', 'y'] } : { fields: ['_id'] };
-    }
-
-    // Parse transformations.
-    transforms.forEach(function(k) {
-      if (!tx[k].parse || !sel[k]) return;
-      tx[k].parse(model, sel);
-    });
-
-    return sel;
+    def.assembleData = false;
+    def.assembleSignals = false;
+    return def;
   });
 }
 
-export function assembleSignals(model: UnitModel, signals) {
+export function assembleSignals(model, signals) {
   var unit = !signals.length;
 
   model.selection().forEach(function(sel: Selection) {
@@ -107,12 +141,21 @@ export function assembleSignals(model: UnitModel, signals) {
         expr: 'eventGroup()'
       }]
     });
+
+    signals.unshift({
+      name: 'vlRoot',
+      init: { _id: -1, width: 1, height: 1 },
+      streams: [{
+        type: 'mousemove',
+        expr: 'eventGroup("root")'
+      }]
+    });
   }
 
   return signals;
 }
 
-export function assembleData(model: UnitModel, data) {
+export function assembleData(model, data) {
   model.selection().forEach(function(sel: Selection) {
     if (sel.type !== Types.SET) return;
     var db = {
@@ -133,7 +176,7 @@ export function assembleData(model: UnitModel, data) {
   return data;
 }
 
-export function assembleMarks(model: UnitModel, marks: any[]) {
+export function assembleMarks(model, marks: any[]) {
   var children = marks;
   model.selection().forEach(function(sel: Selection) {
     transforms.forEach(function(k) {

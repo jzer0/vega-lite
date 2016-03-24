@@ -15,6 +15,7 @@ import {assembleData, parseRepeatData} from './data/data';
 import {assembleLayout, parseRepeatLayout} from './layout';
 import {Model} from './model';
 import {parseScaleComponent} from './scale';
+import * as selections from './selections';
 
 export type RepeatValues = {
   row: string,
@@ -124,11 +125,6 @@ export class RepeatModel extends Model {
     this.component.data = parseRepeatData(this);
   }
 
-  public parseSelectionData() {
-    // TODO: @arvind can write this
-    // We might need to split this into compileSelectionData and compileSelectionSignals?
-  }
-
   public parseLayoutData() {
     this._children.forEach((child, i) => {
       child.parseLayoutData();
@@ -201,6 +197,11 @@ export class RepeatModel extends Model {
     });
   }
 
+  public parseSelection() {
+    this.component.selection = selections.parse(this, this._select);
+    this._children.forEach((child) => child.parseSelection());
+  }
+
   public assembleParentGroupProperties() {
     return null;
   }
@@ -213,8 +214,20 @@ export class RepeatModel extends Model {
     return data;
   }
 
+  public assembleSelectionData(data: VgData[]): VgData[] {
+    selections.assembleData(this, data);
+    this._children.forEach((child) => child.assembleSelectionData(data));
+    return data;
+  }
+
+  public assembleSignals(signals) {
+    selections.assembleSignals(this, signals);
+    this._children.forEach((child) => child.assembleSignals(signals));
+    return signals;
+  }
+
   public assembleLayout(layoutData: VgData[]): VgData[] {
-    // Postfix traversal – layout is assembled bottom-up 
+    // Postfix traversal – layout is assembled bottom-up
     this._children.forEach((child) => {
       child.assembleLayout(layoutData);
     });
@@ -226,7 +239,7 @@ export class RepeatModel extends Model {
     return flatten(this._children.map((child) => {
       return extend(
         {
-          name: this.name('cell'),
+          name: child.name('cell'),
           type: 'group',
           from: {data: child.dataName(LAYOUT)},
           properties: {

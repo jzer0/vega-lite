@@ -19,6 +19,7 @@ import {duplicate, extend} from './util';
 export interface BaseSpec {
   name?: string;
   description?: string;
+  select?: any;
   data?: Data;
   transform?: Transform;
   config?: Config;

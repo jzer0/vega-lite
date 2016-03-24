@@ -209,6 +209,10 @@ export class LayerModel extends Model {
     });
   }
 
+  public parseSelection() {
+    return null;
+  }
+
   public assembleParentGroupProperties() {
     return null;
   }
